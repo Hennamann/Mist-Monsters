@@ -1,0 +1,46 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.bomb.move": {
+			"loop": true,
+			"animation_length": 0.79167,
+			"bones": {
+				"bomb": {
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 3, -5],
+							"easing": "easeInSine"
+						},
+						"0.5417": {
+							"vector": [0, -4, -9],
+							"easing": "easeInSine"
+						},
+						"0.7917": {
+							"vector": [0, 0, 0],
+							"easing": "easeInSine"
+						}
+					}
+				}
+			}
+		},
+		"animation.bomb.explode": {
+			"animation_length": 0.75,
+			"bones": {
+				"bomb": {
+					"scale": {
+						"0.0": {
+							"vector": [1, 1, 1]
+						},
+						"0.75": {
+							"vector": [2, 2, 1]
+						}
+					}
+				}
+			}
+		}
+	},
+	"geckolib_format_version": 2
+}

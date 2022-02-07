@@ -2,28 +2,28 @@ buildscript {
     repositories {
         // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
         maven { url = 'https://maven.minecraftforge.net' }
-        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
         mavenCentral()
     }
     dependencies {
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
-        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
     }
 }
 apply plugin: 'net.minecraftforge.gradle'
 // Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
-apply plugin: 'org.spongepowered.mixin'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
 ext.configFile = file('build.properties')
 ext.localFile = file('local.properties')
 ext.config = parseConfig(configFile)
-ext.local = parseConfig(localFile)
 
-version = "${config.version}"
-group = "com.henrikstabell.modname" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = "modname"
+if (localFile.exists()) {
+    ext.local = parseConfig(localFile)
+}
+
+version = config.version
+group = "com.henrikstabell.mistmonsters" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
+archivesBaseName = "mistmonsters"
 
 // Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -51,6 +51,10 @@ minecraft {
         client {
             workingDirectory project.file('run')
 
+            // Some mods uses Mixins, this fixes mapping issues during runtime caused by different mappings by Mixin.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+
             // Recommended logging data for a userdev environment
             // The markers can be added/remove as needed separated by commas.
             // "SCAN": For mods scan.
@@ -64,7 +68,7 @@ minecraft {
             property 'forge.logging.console.level', 'debug'
 
             mods {
-                examplemod {
+                mistmonsters {
                     source sourceSets.main
                 }
             }
@@ -86,7 +90,7 @@ minecraft {
             property 'forge.logging.console.level', 'debug'
 
             mods {
-                examplemod {
+                mistmonsters {
                     source sourceSets.main
                 }
             }
@@ -108,10 +112,10 @@ minecraft {
             property 'forge.logging.console.level', 'debug'
 
             // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
-            args '--mod', 'horselantern', '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+            args '--mod', 'mistmonsters', '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
 
             mods {
-                examplemod {
+                mistmonsters {
                     source sourceSets.main
                 }
             }
@@ -123,10 +127,11 @@ minecraft {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
+    maven { url "https://maven.henrikstabell.com/mist-mods" } // Mist Core, Mist Biomes
     maven { url "https://maven.bai.lol" } // WTHIT
     maven { url "https://maven.tterrag.com/" } // TOP
     maven { url 'https://www.cursemaven.com' } // TOP etc…
-    maven { url "https://maven.shedaniel.me" } // Architectury, Roughly Enough Items
+    maven { url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/' } //GeckoLib
     }
 
 dependencies {
@@ -135,21 +140,26 @@ dependencies {
     // The userdev artifact is a special name and will get all sorts of transformations applied to it.
     minecraft "net.minecraftforge:forge:${config.mcVersion}-${config.forgeVersion}"
 
+    implementation fg.deobf("software.bernie.geckolib:geckolib-1.18-forge:${config.geckoLibVersion}")
+
+    // Required for Mist Biomes
+    runtimeOnly fg.deobf("com.github.glitchfiend:TerraBlender-forge:${config.mcVersion}-${config.terraBlenderVersion}") //TerraBlender is in the forge maven repo.
+
+    // Mist Core for Mist API, Biomes to spawn monsters in specific biomes.
+    implementation fg.deobf("com.henrikstabell.mistcore:MistCore-${config.mcVersion}:${config.mistCoreVersion}")
+    runtimeOnly fg.deobf("com.henrikstabell.mistbiomes:MistBiomes-${config.mcVersion}:${config.mistBiomesVersion}")
+
     // Uncomment these if Waila and TOP integration is needed.
     //compileOnly fg.deobf("mcp.mobius.waila:wthit-api:forge-${config.wthitVersion}")
     //runtimeOnly fg.deobf("mcp.mobius.waila:wthit:forge-${config.wthitVersion}")
     
     //implementation fg.deobf("curse.maven:the-one-probe-245211:${config.topId}")
 
+    runtimeOnly fg.deobf("curse.maven:natures-compass-252848:${config.naturesCompassId}")
+
     // For testing config compat.
     runtimeOnly fg.deobf("curse.maven:configured-457570:${config.configuredId}")
     runtimeOnly fg.deobf("curse.maven:catalogue-459701:${config.catalogueId}")
-
-    // REI, for utility and recipe image creation
-    runtimeOnly fg.deobf("dev.architectury:architectury-forge:${config.architecturyVersion}")
-    runtimeOnly fg.deobf("me.shedaniel.cloth:cloth-config-forge:${config.clothConfigVersion}")
-    runtimeOnly fg.deobf("me.shedaniel:RoughlyEnoughItems-forge:${config.reiVersion}")
-
 }
 
 def parseConfig(File config) {
@@ -160,9 +170,9 @@ def parseConfig(File config) {
     }
 }
 
-def getManifestAttributes(String title) {
+def getManifestAttributes() {
     return [
-            "Specification-Title"     : "modname",
+            "Specification-Title"     : "mistmonsters",
             "Specification-Vendor"    : "Hennamann",
             "Specification-Version"   : "${config.version}",
             "Implementation-Title"    : project.name,
@@ -173,32 +183,23 @@ def getManifestAttributes(String title) {
 }
 
 jar {
-    manifest.attributes(getManifestAttributes("modname"))
+    manifest.attributes(getManifestAttributes())
 }
 
 task sourcesJar(type: Jar) {
     from sourceSets.main.allSource
-    manifest.attributes(getManifestAttributes("modname"))
+    manifest.attributes(getManifestAttributes())
     archiveClassifier.set("sources")
 }
 
 task deobfJar(type: Jar) {
     from sourceSets.main.output
-    manifest.attributes(getManifestAttributes("modname"))
+    manifest.attributes(getManifestAttributes())
     archiveClassifier.set("deobf")
 }
 
 task exportJavadoc(type: Javadoc) {
     source = sourceSets.main.allSource
-}
-
-task apiJar(type: Jar) {
-    from sourceSets.main.allSource
-    manifest.attributes(getManifestAttributes("modname"))
-    from sourceSets.main.output
-
-    include 'com/henrikstabell/horselantern/api/**/*'
-    archiveClassifier.set("api")
 }
 
 task copyBuildXml(type: Copy) {
@@ -208,16 +209,16 @@ task copyBuildXml(type: Copy) {
 
 jar.finalizedBy('reobfJar')
 
+if (localFile.exists()) {
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            groupId 'com.henrikstabell.modname'
-            artifactId 'modname-1.18.1'
+            groupId 'com.henrikstabell.mistmonsters'
+            artifactId 'MistMonsters-1.18.1'
 
             artifact jar
             artifact deobfJar
             artifact sourcesJar
-            artifact apiJar
         }
     }
     repositories {
@@ -226,9 +227,10 @@ publishing {
                 username = "${local.userMaven}"
                 password = "${local.passMaven}"
             }
-            url "https://maven.henrikstabell.com/mods"
+            url "https://maven.henrikstabell.com/mist-mods"
             authentication {
                 basic(BasicAuthentication)
+                }
             }
         }
     }
